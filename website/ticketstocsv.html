@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket CSV Generator</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #052e16, #020617);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ecfdf5;
+    }
+
+    /* Card */
+    .container {
+      width: 650px;
+      max-width: 95%;
+      background: rgba(2, 6, 23, 0.92);
+      padding: 32px;
+      border-radius: 18px;
+      box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.7),
+        inset 0 0 0 1px rgba(34, 197, 94, 0.15);
+    }
+
+    /* Title */
+    h2 {
+      text-align: center;
+      margin: 0 0 10px;
+      font-size: 26px;
+      letter-spacing: 0.5px;
+      color: #22c55e;
+    }
+
+    /* Help text */
+    p {
+      text-align: center;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: #a7f3d0;
+    }
+
+    /* Textarea */
+    textarea {
+      width: 100%;
+      height: 280px;
+      padding: 14px;
+      background: #020617;
+      color: #ecfdf5;
+      border-radius: 12px;
+      border: 1px solid #14532d;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      transition: 0.25s;
+    }
+
+    textarea::placeholder {
+      color: #4ade80;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35);
+    }
+
+    /* Counter */
+    .footer {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: #86efac;
+    }
+
+    /* Error */
+    .error {
+      margin-top: 6px;
+      text-align: center;
+      font-size: 13px;
+      color: #f87171;
+      min-height: 18px;
+    }
+
+    /* Button */
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: none;
+      border-radius: 12px;
+      color: #022c22;
+      cursor: pointer;
+      transition: 0.25s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(34, 197, 94, 0.45);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    /* NVIDIA green glow */
+    .glow-card {
+      background: #0b0f0d;
+      border-radius: 12px;
+      position: relative;
+      box-shadow: 0 0 12px rgba(118, 255, 3, 0.25);
+      transition: all 0.3s ease;
+    }
+
+    .glow-card:hover {
+      box-shadow:
+        0 0 15px rgba(118, 255, 3, 0.5),
+        0 0 30px rgba(118, 255, 3, 0.35);
+      transform: translateY(-2px);
+    }
+
+    #matrix {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background: black;
+    }
+  </style>
+
+
+</head>
+
+<body>
+  <canvas id="matrix"></canvas>
+
+  <div class="glow-card">
+    <!-- Your content -->
+
+    <div class="container">
+      <h2>Ticket → CSV Generator</h2>
+
+      <p>Paste tickets in this format and press ctrl + enter to download csv:</p>
+
+      <textarea id="inputData" placeholder="12345
+https://helpdesk.com/ticket/mw12345
+Website down
+Restarted apache
+
+12346
+https://helpdesk.com/ticket/mw12346
+Email issue
+Reset mailbox"></textarea>
+
+      <div id="counter" class="footer">Tickets detected: 0</div>
+      <div id="errorBox" class="error"></div>
+      <button onclick="downloadCSV()">Download CSV</button>
+    </div>
+  </div>
+  <script>
+    const textarea = document.getElementById("inputData");
+    const counter = document.getElementById("counter");
+    const errorBox = document.getElementById("errorBox");
+    const STORAGE_KEY = "ticket_csv_draft";
+
+    // Restore draft on load
+    window.addEventListener("load", () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        textarea.value = saved;
+        textarea.dispatchEvent(new Event("input"));
+      }
+    });
+
+    /* Live ticket counter */
+    textarea.addEventListener("input", () => {
+
+      localStorage.setItem(STORAGE_KEY, textarea.value);
+
+      let lines = textarea.value
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l !== "");
+
+      let tickets = Math.floor(lines.length / 4);
+      counter.textContent = "Tickets detected: " + tickets;
+      errorBox.textContent = "";
+    });
+
+
+    /* Ctrl + Enter */
+    textarea.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "Enter") {
+        downloadCSV();
+      }
+    });
+
+    function downloadCSV() {
+
+      errorBox.textContent = "";
+
+      let text = textarea.value.trim();
+
+      if (!text) {
+        errorBox.textContent = "Please paste ticket data first.";
+        return;
+      }
+
+      let lines = text.split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l !== "");
+
+      // Validate each ticket block
+      for (let i = 0; i < lines.length; i += 4) {
+        if (!lines[i] || !lines[i + 1] || !lines[i + 2] || !lines[i + 3]) {
+          let ticketNumber = (i / 4) + 1;
+          errorBox.textContent =
+            `Ticket ${ticketNumber} is incomplete. Each ticket must have 4 lines (ID, URL, Issue, Work).`;
+          return;
+        }
+      }
+
+      let csv = "ticket_id,ticket_url,ticket_issue,ticket_action\n";
+
+      for (let i = 0; i < lines.length; i += 4) {
+        csv += `"${escapeCSV(lines[i])}",` +
+          `"${escapeCSV(lines[i + 1])}",` +
+          `"${escapeCSV(lines[i + 2])}",` +
+          `"${escapeCSV(lines[i + 3])}"\n`;
+      }
+
+      let today = new Date().toISOString().slice(0, 10);
+      let filename = `tickets_${today}.csv`;
+
+      let blob = new Blob([csv], { type: "text/csv" });
+      let url = URL.createObjectURL(blob);
+
+      let a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+
+      URL.revokeObjectURL(url);
+
+      /* Auto clear */
+      textarea.value = "";
+      counter.textContent = "Tickets detected: 0";
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    /* Escape CSV */
+    function escapeCSV(value) {
+      return value.replace(/"/g, '""');
+    }
+
+
+
+    const canvas = document.getElementById("matrix");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const letters = "01";
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+
+    function draw() {
+      ctx.fillStyle = "rgba(0,0,0,0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#76ff03"; // NVIDIA green
+      ctx.font = fontSize + "px monospace";
+
+      drops.forEach((y, i) => {
+        const text = letters[Math.floor(Math.random() * letters.length)];
+        ctx.fillText(text, i * fontSize, y * fontSize);
+        if (y * fontSize > canvas.height && Math.random() > 0.975)
+          drops[i] = 0;
+        drops[i]++;
+      });
+    }
+    setInterval(draw, 33);
+  </script>
+
+</body>
+
+</html>
