@@ -277,33 +277,78 @@ Resolved pending mails"></textarea>
     /* NOTES */
     notesInput.addEventListener("input", () => {
       localStorage.setItem(NOTES_KEY, notesInput.value);
-
-      let blocks = notesInput.value.trim().split(/\n\s*\n/).filter(b => b.trim());
-      document.getElementById("notesCounter").textContent =
-        "Notes detected: " + blocks.length;
+      let count = parseNotes(notesInput.value).length;
+      document.getElementById("notesCounter").textContent = "Notes detected: " + count;
     });
 
     notesInput.addEventListener("keydown", e => {
       if (e.ctrlKey && e.key === "Enter") downloadNotesCSV();
     });
 
+    // NEW: Regex-powered smart parser for '>>', '>', and multi-line formats
+    function parseNotes(text) {
+      let rawLines = text.split(/\n/).filter(l => l.trim());
+      let parsedNotes = [];
+
+      for (let i = 0; i < rawLines.length; i++) {
+        let line = rawLines[i].trim();
+
+        // Regex checks if the line contains '>>' or '>' 
+        // match[1] will be the Title, match[2] is the separator, match[3] is the Description
+        let match = line.match(/^(.*?)(>>|>)(.*)$/);
+
+        if (match) {
+          // Pattern 1: Inline separator was found
+          let title = match[1].trim();
+          let desc = match[3].trim();
+          parsedNotes.push({ title, desc });
+        }
+        else {
+          // Pattern 2: Multi-line fallback
+          let title = line;
+          let desc = "";
+
+          // Check if the next line exists
+          if (i + 1 < rawLines.length) {
+            let nextLine = rawLines[i + 1].trim();
+
+            // Ensure the next line isn't actually a new inline note
+            let nextMatch = nextLine.match(/^(.*?)(>>|>)(.*)$/);
+            if (!nextMatch) {
+              desc = nextLine;
+              i++; // Skip the next line since we're using it as the description
+            }
+          }
+          parsedNotes.push({ title, desc });
+        }
+      }
+      return parsedNotes;
+    }
+
     function downloadNotesCSV() {
-      let blocks = notesInput.value.trim().split(/\n\s*\n/);
+      let notes = parseNotes(notesInput.value);
+
+      if (notes.length === 0) {
+        document.getElementById("notesError").textContent = "No valid notes found.";
+        return;
+      }
+
       let csv = "title,description\n";
 
-      for (let b of blocks) {
-        let lines = b.split(/\n/).filter(l => l.trim());
-        if (lines.length < 2) {
-          document.getElementById("notesError").textContent = "Invalid note format";
-          return;
-        }
-        csv += `"${lines[0]}","${lines.slice(1).join(" ")}"\n`;
-      }
+      notes.forEach(note => {
+        // Escape quotes to prevent CSV formatting issues
+        let safeTitle = note.title.replace(/"/g, '""');
+        let safeDesc = note.desc.replace(/"/g, '""');
+        csv += `"${safeTitle}","${safeDesc}"\n`;
+      });
 
       download(csv, "notes");
 
+      // Clean up after download
       notesInput.value = "";
       localStorage.removeItem(NOTES_KEY);
+      document.getElementById("notesError").textContent = "";
+      document.getElementById("notesCounter").textContent = "Notes detected: 0";
     }
 
     /* COMMON */
