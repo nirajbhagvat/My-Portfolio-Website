@@ -160,386 +160,397 @@
                     Agent Name
                 </label>
 
-                <input id="agentName" type="text" placeholder="Example: Niraj Bhagvat" style="
+                <textarea id="agentName" placeholder="Agent Name" style="
+            width:100%;
+            padding:12px; height: 47px;"> </textarea>
+
+                <!-- <input id="agentName" type="text" placeholder="Example: Agent Name" style="
             width:100%;
             padding:12px;
             background:#020617;
-            color:#ecfdf5;
+            color:#86efac;
+            text-decoration-color: #86efac;
             border:1px solid #14532d;
             border-radius:10px;
-            font-size:14px;
-        ">
+            font-size:14px;"> -->
             </div>
 
-            <textarea id="inputData" placeholder="Niraj Bhagvat
-Himanshu Tripathi
+
+            <div style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:6px;font-size:14px;color:#86efac;">
+                    Report Data
+                </label>
+
+                <textarea id="inputData" placeholder="Agent Name
+Client Name
 Please rate the conversation
 1h • 1m
 
-Niraj Bhagvat
-Harsh Chaudhary
+Agent Name
+Client Name
 Please rate the conversation
 1h • 1h"></textarea>
 
-            <div id="counter" class="footer">Chats detected: 0</div>
-            <div id="errorBox" class="error"></div>
-            <div style="display:flex;gap:10px;">
+                <div id="counter" class="footer">Chats detected: 0</div>
+                <div id="errorBox" class="error"></div>
+                <div style="display:flex;gap:10px;">
 
-                <button onclick="handleDownload()" style="flex:1;">
-                    Download CSV
-                </button>
+                    <button onclick="handleDownload()" style="flex:1;">
+                        Download CSV
+                    </button>
 
-                <button onclick="clearAll()" style="
-flex:1;
-background:#991b1b;
-color:white;
-">
-                    Clear
-                </button>
+                    <button onclick="clearAll()" style="
+                    flex:1;
+                    background:#991b1b;
+                    color:white;
+                    ">
+                        Clear
+                    </button>
 
+                </div>
             </div>
         </div>
-    </div>
-    <script>
-        const textarea = document.getElementById("inputData");
-        const agentInput = document.getElementById("agentName");
 
-        const counter = document.getElementById("counter");
-        const errorBox = document.getElementById("errorBox");
+        <script>
+            const textarea = document.getElementById("inputData");
+            const agentInput = document.getElementById("agentName");
 
-        const MARKER = "please rate the conversation";
+            const counter = document.getElementById("counter");
+            const errorBox = document.getElementById("errorBox");
 
-        /* A line is the rating-prompt marker (case-insensitive) */
-        function isMarker(line) {
-            return line.toLowerCase() === MARKER;
-        }
+            const MARKER = "please rate the conversation";
 
-        /* A line is a usable name if it's non-empty, isn't the marker, and isn't a timestamp */
-        function isValidName(line) {
-            return !!line && !isMarker(line) && !line.includes("•");
-        }
+            /* A line is the rating-prompt marker (case-insensitive) */
+            function isMarker(line) {
+                return line.toLowerCase() === MARKER;
+            }
+
+            /* A line is a usable name if it's non-empty, isn't the marker, and isn't a timestamp */
+            function isValidName(line) {
+                return !!line && !isMarker(line) && !line.includes("•");
+            }
 
 
-        function normalize(text) {
+            function normalize(text) {
 
-            return text
-                .trim()
-                .replace(/\s+/g, " ")
-                .toLowerCase();
-
-        }
-
-        /* Parse pasted chat text into an array of { client_name, chat_agent } records */
-        function parseInput(text, agentName) {
-
-            if (!text || !agentName)
-                return [];
-
-            agentName = normalize(agentName);
-
-            const rawLines = text
-                .split(/\r?\n/)
-                .map(l => l.trim())
-                .filter(Boolean);
-
-            const records = [];
-
-            let block = [];
-
-            const timestampRegex = /^\d+\s*[hm].*•.*$/i;
-
-            function processBlock(lines) {
-
-                if (!lines.length)
-                    return;
-
-                // Remove junk lines
-                lines = lines.filter(line => {
-
-                    if (!line)
-                        return false;
-
-                    if (/^\d+$/.test(line))
-                        return false;
-
-                    return true;
-
-                });
-
-                if (!lines.length)
-                    return;
-
-                // Find agent position
-                const agentIndexes = [];
-
-                lines.forEach((line, index) => {
-
-                    if (normalize(line) === agentName)
-                        agentIndexes.push(index);
-
-                });
-
-                if (!agentIndexes.length)
-                    return;
-
-                let client = null;
-
-                // ---------- CASE 1 ----------
-                // Agent
-                // Client
-                if (
-                    agentIndexes[0] === 0 &&
-                    lines.length >= 2
-                ) {
-                    client = lines[1];
-                }
-
-                // ---------- CASE 2 ----------
-                // Client
-                // Agent
-                // Client
-                else if (
-                    agentIndexes[0] === 1 &&
-                    lines.length >= 3 &&
-                    lines[0] === lines[2]
-                ) {
-                    client = lines[0];
-                }
-
-                // ---------- CASE 3 ----------
-                // Client
-                // Agent
-                else if (
-                    agentIndexes[0] > 0
-                ) {
-                    client = lines[0];
-                }
-
-                if (!client)
-                    return;
-
-                // Ignore invalid client names
-
-                const invalid = [
-                    "please rate the conversation"
-                ];
-
-                if (invalid.includes(client.toLowerCase()))
-                    return;
-
-                records.push({
-                    client_name: client,
-                    chat_agent: lines[agentIndexes[0]]
-                });
+                return text
+                    .trim()
+                    .replace(/\s+/g, " ")
+                    .toLowerCase();
 
             }
 
-            rawLines.forEach(line => {
+            /* Parse pasted chat text into an array of { client_name, chat_agent } records */
+            function parseInput(text, agentName) {
 
-                if (timestampRegex.test(line)) {
+                if (!text || !agentName)
+                    return [];
 
-                    processBlock(block);
+                agentName = normalize(agentName);
 
-                    block = [];
+                const rawLines = text
+                    .split(/\r?\n/)
+                    .map(l => l.trim())
+                    .filter(Boolean);
+
+                const records = [];
+
+                let block = [];
+
+                const timestampRegex = /^\d+\s*[hmd].*•.*$/i;
+
+                function processBlock(lines) {
+
+                    if (!lines.length)
+                        return;
+
+                    // Remove junk lines
+                    lines = lines.filter(line => {
+
+                        if (!line)
+                            return false;
+
+                        if (/^\d+$/.test(line))
+                            return false;
+
+                        return true;
+
+                    });
+
+                    if (!lines.length)
+                        return;
+
+                    // Find agent position
+                    const agentIndexes = [];
+
+                    lines.forEach((line, index) => {
+
+                        if (normalize(line) === agentName)
+                            agentIndexes.push(index);
+
+                    });
+
+                    if (!agentIndexes.length)
+                        return;
+
+                    let client = null;
+
+                    // ---------- CASE 1 ----------
+                    // Agent
+                    // Client
+                    if (
+                        agentIndexes[0] === 0 &&
+                        lines.length >= 2
+                    ) {
+                        client = lines[1];
+                    }
+
+                    // ---------- CASE 2 ----------
+                    // Client
+                    // Agent
+                    // Client
+                    else if (
+                        agentIndexes[0] === 1 &&
+                        lines.length >= 3 &&
+                        lines[0] === lines[2]
+                    ) {
+                        client = lines[0];
+                    }
+
+                    // ---------- CASE 3 ----------
+                    // Client
+                    // Agent
+                    else if (
+                        agentIndexes[0] > 0
+                    ) {
+                        client = lines[0];
+                    }
+
+                    if (!client)
+                        return;
+
+                    // Ignore invalid client names
+
+                    const invalid = [
+                        "please rate the conversation"
+                    ];
+
+                    if (invalid.includes(client.toLowerCase()))
+                        return;
+
+                    records.push({
+                        client_name: client,
+                        chat_agent: lines[agentIndexes[0]]
+                    });
+
+                }
+
+                rawLines.forEach(line => {
+
+                    if (timestampRegex.test(line)) {
+
+                        processBlock(block);
+
+                        block = [];
+
+                        return;
+
+                    }
+
+                    block.push(line);
+
+                });
+
+                processBlock(block);
+
+                return records;
+
+            }
+
+            /* Escape a CSV field: only quote it when it actually needs quoting */
+            function escapeCSV(value) {
+                const str = String(value);
+                if (/[",\n]/.test(str)) {
+                    return '"' + str.replace(/"/g, '""') + '"';
+                }
+                return str;
+            }
+
+            /* Build the CSV string from parsed records */
+            function generateCSV(records) {
+                const header = "client_name,client_email,chat_duration,chat_agent,chat_status,total_messages,chat_updated";
+
+                const rows = records.map(r => [
+                    escapeCSV(r.client_name),
+                    escapeCSV(0),
+                    escapeCSV(0),
+                    escapeCSV(r.chat_agent),
+                    escapeCSV("Resolved"),
+                    escapeCSV(0),
+                    escapeCSV(0)
+                ].join(","));
+
+                return [header, ...rows].join("\n") + "\n";
+            }
+
+            /* Trigger a CSV file download */
+            function downloadCSV(csv) {
+                let today = new Date().toISOString().slice(0, 10);
+                let filename = `chats_${today}.csv`;
+
+                let blob = new Blob([csv], { type: "text/csv" });
+                let url = URL.createObjectURL(blob);
+
+                let a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                a.click();
+
+                URL.revokeObjectURL(url);
+            }
+
+            /* Ties parseInput -> generateCSV -> downloadCSV together, with validation */
+            function handleDownload() {
+                errorBox.textContent = "";
+
+                let text = textarea.value.trim();
+
+                if (!text) {
+                    errorBox.textContent = "Please paste chat data first.";
+                    return;
+                }
+
+                const agent = document.getElementById("agentName").value.trim();
+
+                if (!agent) {
+
+                    errorBox.textContent = "Please enter Agent Name.";
 
                     return;
 
                 }
 
-                block.push(line);
+                let records = parseInput(text, agent);
+
+                if (records.length === 0) {
+                    errorBox.textContent = "No valid chat records found. Please check the format.";
+                    return;
+                }
+
+                let csv = generateCSV(records);
+                downloadCSV(csv);
+
+                /* Auto clear */
+                textarea.value = "";
+
+                localStorage.removeItem("chatCSVInput");
+
+                counter.textContent = "Chats detected: 0";
+            }
+
+            function clearAll() {
+
+                textarea.value = "";
+
+                errorBox.textContent = "";
+
+                counter.textContent =
+                    "Chats detected: 0";
+
+                localStorage.removeItem("chatCSVInput");
+
+            }
+
+
+            /* Live counter — runs the real parser so the count is always accurate */
+            textarea.addEventListener("input", () => {
+
+                localStorage.setItem(
+                    "chatCSVInput",
+                    textarea.value
+                );
+
+                const agent = agentInput.value.trim();
+
+                const records = parseInput(
+                    textarea.value,
+                    agent
+                );
+
+                counter.textContent =
+                    "Chats detected: " + records.length;
+
+                errorBox.textContent = "";
 
             });
 
-            processBlock(block);
+            agentInput.addEventListener("input", () => {
 
-            return records;
+                const records = parseInput(
+                    textarea.value,
+                    agentInput.value
+                );
 
-        }
+                counter.textContent =
+                    "Chats detected: " + records.length;
 
-        /* Escape a CSV field: only quote it when it actually needs quoting */
-        function escapeCSV(value) {
-            const str = String(value);
-            if (/[",\n]/.test(str)) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        }
-
-        /* Build the CSV string from parsed records */
-        function generateCSV(records) {
-            const header = "client_name,client_email,chat_duration,chat_agent,chat_status,total_messages,chat_updated";
-
-            const rows = records.map(r => [
-                escapeCSV(r.client_name),
-                escapeCSV(0),
-                escapeCSV(0),
-                escapeCSV(r.chat_agent),
-                escapeCSV("Resolved"),
-                escapeCSV(0),
-                escapeCSV(0)
-            ].join(","));
-
-            return [header, ...rows].join("\n") + "\n";
-        }
-
-        /* Trigger a CSV file download */
-        function downloadCSV(csv) {
-            let today = new Date().toISOString().slice(0, 10);
-            let filename = `chats_${today}.csv`;
-
-            let blob = new Blob([csv], { type: "text/csv" });
-            let url = URL.createObjectURL(blob);
-
-            let a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            a.click();
-
-            URL.revokeObjectURL(url);
-        }
-
-        /* Ties parseInput -> generateCSV -> downloadCSV together, with validation */
-        function handleDownload() {
-            errorBox.textContent = "";
-
-            let text = textarea.value.trim();
-
-            if (!text) {
-                errorBox.textContent = "Please paste chat data first.";
-                return;
-            }
-
-            const agent = document.getElementById("agentName").value.trim();
-
-            if (!agent) {
-
-                errorBox.textContent = "Please enter Agent Name.";
-
-                return;
-
-            }
-
-            let records = parseInput(text, agent);
-
-            if (records.length === 0) {
-                errorBox.textContent = "No valid chat records found. Please check the format.";
-                return;
-            }
-
-            let csv = generateCSV(records);
-            downloadCSV(csv);
-
-            /* Auto clear */
-            textarea.value = "";
-
-            localStorage.removeItem("chatCSVInput");
-
-            counter.textContent = "Chats detected: 0";
-        }
-
-        function clearAll() {
-
-            textarea.value = "";
-
-            errorBox.textContent = "";
-
-            counter.textContent =
-                "Chats detected: 0";
-
-            localStorage.removeItem("chatCSVInput");
-
-        }
-
-
-        /* Live counter — runs the real parser so the count is always accurate */
-        textarea.addEventListener("input", () => {
-
-            localStorage.setItem(
-                "chatCSVInput",
-                textarea.value
-            );
-
-            const agent = agentInput.value.trim();
-
-            const records = parseInput(
-                textarea.value,
-                agent
-            );
-
-            counter.textContent =
-                "Chats detected: " + records.length;
-
-            errorBox.textContent = "";
-
-        });
-
-        agentInput.addEventListener("input", () => {
-
-            const records = parseInput(
-                textarea.value,
-                agentInput.value
-            );
-
-            counter.textContent =
-                "Chats detected: " + records.length;
-
-        });
-
-        /* Ctrl + Enter */
-        textarea.addEventListener("keydown", (e) => {
-            if (e.ctrlKey && e.key === "Enter") {
-                handleDownload();
-            }
-        });
-
-
-
-        const canvas = document.getElementById("matrix");
-        const ctx = canvas.getContext("2d");
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        const letters = "01";
-        const fontSize = 14;
-        const columns = canvas.width / fontSize;
-        const drops = Array(Math.floor(columns)).fill(1);
-
-        function draw() {
-            ctx.fillStyle = "rgba(0,0,0,0.05)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = "#76ff03"; // NVIDIA green
-            ctx.font = fontSize + "px monospace";
-
-            drops.forEach((y, i) => {
-                const text = letters[Math.floor(Math.random() * letters.length)];
-                ctx.fillText(text, i * fontSize, y * fontSize);
-                if (y * fontSize > canvas.height && Math.random() > 0.975)
-                    drops[i] = 0;
-                drops[i]++;
             });
-        }
-        window.addEventListener("load", () => {
 
-            agentInput.value =
-                localStorage.getItem("chatCSVAgent") || "";
+            /* Ctrl + Enter */
+            textarea.addEventListener("keydown", (e) => {
+                if (e.ctrlKey && e.key === "Enter") {
+                    handleDownload();
+                }
+            });
 
-            textarea.value =
-                localStorage.getItem("chatCSVInput") || "";
 
-            const records = parseInput(
-                textarea.value,
-                agentInput.value
-            );
 
-            counter.textContent =
-                "Chats detected: " + records.length;
+            const canvas = document.getElementById("matrix");
+            const ctx = canvas.getContext("2d");
 
-        });
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
 
-        setInterval(draw, 33);
-    </script>
+            const letters = "01";
+            const fontSize = 14;
+            const columns = canvas.width / fontSize;
+            const drops = Array(Math.floor(columns)).fill(1);
+
+            function draw() {
+                ctx.fillStyle = "rgba(0,0,0,0.05)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#76ff03"; // NVIDIA green
+                ctx.font = fontSize + "px monospace";
+
+                drops.forEach((y, i) => {
+                    const text = letters[Math.floor(Math.random() * letters.length)];
+                    ctx.fillText(text, i * fontSize, y * fontSize);
+                    if (y * fontSize > canvas.height && Math.random() > 0.975)
+                        drops[i] = 0;
+                    drops[i]++;
+                });
+            }
+            window.addEventListener("load", () => {
+
+                agentInput.value =
+                    localStorage.getItem("chatCSVAgent") || "";
+
+                textarea.value =
+                    localStorage.getItem("chatCSVInput") || "";
+
+                const records = parseInput(
+                    textarea.value,
+                    agentInput.value
+                );
+
+                counter.textContent =
+                    "Chats detected: " + records.length;
+
+            });
+
+            setInterval(draw, 33);
+        </script>
 
 </body>
 
