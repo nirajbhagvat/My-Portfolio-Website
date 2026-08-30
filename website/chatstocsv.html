@@ -264,13 +264,22 @@ Please rate the conversation
                     if (!lines.length)
                         return;
 
-                    // Remove junk lines
                     lines = lines.filter(line => {
 
                         if (!line)
                             return false;
 
+                        // Ignore numeric lines
                         if (/^\d+$/.test(line))
+                            return false;
+
+                        // Ignore MilesWeb header lines
+                        const ignoreLines = [
+                            "milesweb",
+                            "milesweb support"
+                        ];
+
+                        if (ignoreLines.includes(normalize(line)))
                             return false;
 
                         return true;
